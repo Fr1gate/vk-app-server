@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BuildingType {
+  MAIN
+  SHIPYARD
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  vk_id    BigInt  @unique
+  name     String?
+  password String? // For local authentication
+  email    String? @unique
+
+  // Authentication
+  refresh_tokens RefreshToken[]
+  home_base      HomeBase[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         Int      @id @default(autoincrement())
+  token      String   @unique
+  user_id    Int
+  expires_at DateTime
+  created_at DateTime @default(now())
+  is_revoked Boolean  @default(false)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model HomeBase {
+  id Int @id @default(autoincrement())
+
+  // relations
+  user_id  Int
+  user     User       @relation(fields: [user_id], references: [id])
+  building Building[]
+}
+
+model Building {
+  id              Int          @id @default(autoincrement())
+  type            BuildingType
+  slot_number     Int
+  level           Int
+  is_upgraded     Boolean
+  will_upgrade_at DateTime?
+
+  // relations
+  base_id Int
+  base    HomeBase @relation(fields: [base_id], references: [id])
+}

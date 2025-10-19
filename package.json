@@ -1,0 +1,33 @@
+{
+  "name": "vk-game-backend",
+  "version": "1.0.0",
+  "description": "VK Game Backend with TypeScript",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx index.ts",
+    "dev:watch": "nodemon --exec tsx index.ts",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.11.1",
+    "bcryptjs": "^3.0.2",
+    "fastify": "^5.4.0",
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "^6.11.1"
+  },
+  "devDependencies": {
+    "@fastify/swagger": "^9.5.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.8.1",
+    "nodemon": "^3.1.10",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "tslib": "^2.8.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
