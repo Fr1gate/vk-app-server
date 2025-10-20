@@ -14,11 +14,9 @@ enum BuildingType {
 }
 
 model User {
-  id       Int     @id @default(autoincrement())
-  vk_id    BigInt  @unique
-  name     String?
-  password String? // For local authentication
-  email    String? @unique
+  id    Int     @id @default(autoincrement())
+  vk_id String  @unique
+  name  String?
 
   // Authentication
   refresh_tokens RefreshToken[]

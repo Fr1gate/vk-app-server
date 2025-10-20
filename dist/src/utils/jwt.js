@@ -25,7 +25,7 @@ export function generateRefreshTokenJWT(payload) {
     return jwt.sign({ ...payload, vkId: payload.vkId.toString(), type: "refresh" }, JWT_REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 }
 /**
- * Generate both access and refresh tokens
+ * Generate both access and refresh tokens for VK authentication
  */
 export function generateTokenPair(userId, vkId) {
     const payload = { userId, vkId: vkId.toString() };
@@ -33,6 +33,13 @@ export function generateTokenPair(userId, vkId) {
         accessToken: generateAccessToken(payload),
         refreshToken: generateRefreshTokenJWT(payload),
     };
+}
+/**
+ * Generate tokens specifically for VK user authentication
+ * This is the main function used by VK auth endpoints
+ */
+export function generateVKTokenPair(userId, vkId) {
+    return generateTokenPair(userId, vkId);
 }
 /**
  * Verify access token

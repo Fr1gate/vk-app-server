@@ -1,11 +1,82 @@
 import { PrismaClient } from "../../../generated/prisma/index.js";
-import bcrypt from "bcryptjs";
-import { generateTokenPair, verifyRefreshToken, generateRefreshToken, } from "../../utils/jwt.js";
+import { generateTokenPair, generateVKTokenPair, verifyRefreshToken, generateRefreshToken, } from "../../utils/jwt.js";
 export default async function authRoutes(fastify, options) {
     // Initialize Prisma client
     const prisma = new PrismaClient();
     fastify.decorate("db", prisma);
-    // Register new user
+    // VK Authentication - Check if user exists
+    fastify.post("/vk-auth", {
+        schema: {
+            body: {
+                type: "object",
+                required: ["vkId"],
+                properties: {
+                    vkId: { type: "string" },
+                },
+            },
+        },
+        handler: async (request, reply) => {
+            try {
+                const { vkId } = request.body;
+                const vkIdBigInt = BigInt(vkId);
+                // Check if user exists in database
+                const existingUser = await fastify.db.user.findUnique({
+                    where: {
+                        vk_id: vkIdBigInt,
+                    },
+                    select: {
+                        id: true,
+                        vk_id: true,
+                        name: true,
+                    },
+                });
+                if (existingUser) {
+                    // User exists - generate tokens and return user data
+                    const tokens = generateVKTokenPair(existingUser.id, existingUser.vk_id);
+                    // Store refresh token in database
+                    const refreshTokenData = generateRefreshToken();
+                    await fastify.db.refreshToken.create({
+                        data: {
+                            token: refreshTokenData,
+                            user_id: existingUser.id,
+                            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                        },
+                    });
+                    return reply.send({
+                        success: true,
+                        userExists: true,
+                        message: "User authenticated successfully",
+                        user: {
+                            id: existingUser.id,
+                            vkId: existingUser.vk_id.toString(),
+                            name: existingUser.name,
+                        },
+                        tokens: {
+                            accessToken: tokens.accessToken,
+                            refreshToken: refreshTokenData,
+                        },
+                    });
+                }
+                else {
+                    // User doesn't exist - notify frontend to request registration
+                    return reply.send({
+                        success: true,
+                        userExists: false,
+                        message: "User not found. Registration required.",
+                        vkId: vkId,
+                    });
+                }
+            }
+            catch (error) {
+                fastify.log.error(error);
+                return reply.status(500).send({
+                    error: "VK authentication failed",
+                    message: "Internal server error",
+                });
+            }
+        },
+    });
+    // Register new VK user
     fastify.post("/register", {
         schema: {
             body: {
@@ -14,42 +85,35 @@ export default async function authRoutes(fastify, options) {
                 properties: {
                     vkId: { type: "string" },
                     name: { type: "string" },
-                    email: { type: "string" },
-                    password: { type: "string" },
                 },
             },
         },
         handler: async (request, reply) => {
             try {
-                const { vkId, name, email, password } = request.body;
+                const { vkId, name } = request.body;
                 const vkIdBigInt = BigInt(vkId);
                 // Check if user already exists
-                const existingUser = await fastify.db.user.findFirst({
+                const existingUser = await fastify.db.user.findUnique({
                     where: {
-                        OR: [{ vk_id: vkIdBigInt }, ...(email ? [{ email }] : [])],
+                        vk_id: vkIdBigInt,
                     },
                 });
                 if (existingUser) {
                     return reply.status(409).send({
                         error: "User already exists",
-                        message: "User with this VK ID or email already exists",
+                        message: "User with this VK ID already exists",
                     });
                 }
-                // Hash password if provided
-                const hashedPassword = password
-                    ? await bcrypt.hash(password, 12)
-                    : null;
-                // Create user
+                // Create user (no password needed for VK auth)
                 const user = await fastify.db.user.create({
                     data: {
                         vk_id: vkIdBigInt,
                         name,
-                        email: email || null,
-                        password: hashedPassword,
+                        password: null, // No password for VK users
                     },
                 });
                 // Generate tokens
-                const tokens = generateTokenPair(user.id, user.vk_id);
+                const tokens = generateVKTokenPair(user.id, user.vk_id);
                 // Store refresh token in database
                 const refreshTokenData = generateRefreshToken();
                 await fastify.db.refreshToken.create({
@@ -60,12 +124,12 @@ export default async function authRoutes(fastify, options) {
                     },
                 });
                 return reply.status(201).send({
+                    success: true,
                     message: "User registered successfully",
                     user: {
                         id: user.id,
                         vkId: user.vk_id.toString(),
                         name: user.name,
-                        email: user.email,
                     },
                     tokens: {
                         accessToken: tokens.accessToken,
@@ -82,52 +146,40 @@ export default async function authRoutes(fastify, options) {
             }
         },
     });
-    // Login user
+    // VK Login user (VK ID only)
     fastify.post("/login", {
         schema: {
             body: {
                 type: "object",
-                required: ["password"],
+                required: ["vkId"],
                 properties: {
                     vkId: { type: "string" },
-                    email: { type: "string" },
-                    password: { type: "string" },
                 },
             },
         },
         handler: async (request, reply) => {
             try {
-                const { vkId, email, password } = request.body;
-                if (!vkId && !email) {
-                    return reply.status(400).send({
-                        error: "Invalid credentials",
-                        message: "Either VK ID or email is required",
-                    });
-                }
-                // Find user
-                const user = await fastify.db.user.findFirst({
+                const { vkId } = request.body;
+                const vkIdBigInt = BigInt(vkId);
+                // Find user by VK ID
+                const user = await fastify.db.user.findUnique({
                     where: {
-                        OR: [
-                            ...(vkId ? [{ vk_id: BigInt(vkId) }] : []),
-                            ...(email ? [{ email }] : []),
-                        ],
+                        vk_id: vkIdBigInt,
+                    },
+                    select: {
+                        id: true,
+                        vk_id: true,
+                        name: true,
                     },
                 });
                 if (!user) {
-                    return reply.status(401).send({
-                        error: "Invalid credentials",
-                        message: "User not found",
-                    });
-                }
-                // Verify password
-                if (user.password && !(await bcrypt.compare(password, user.password))) {
-                    return reply.status(401).send({
-                        error: "Invalid credentials",
-                        message: "Invalid password",
+                    return reply.status(404).send({
+                        error: "User not found",
+                        message: "User with this VK ID does not exist. Please register first.",
                     });
                 }
                 // Generate tokens
-                const tokens = generateTokenPair(user.id, user.vk_id);
+                const tokens = generateVKTokenPair(user.id, user.vk_id);
                 // Store refresh token in database
                 const refreshTokenData = generateRefreshToken();
                 await fastify.db.refreshToken.create({
@@ -138,12 +190,12 @@ export default async function authRoutes(fastify, options) {
                     },
                 });
                 return reply.send({
+                    success: true,
                     message: "Login successful",
                     user: {
                         id: user.id,
                         vkId: user.vk_id.toString(),
                         name: user.name,
-                        email: user.email,
                     },
                     tokens: {
                         accessToken: tokens.accessToken,
@@ -263,7 +315,6 @@ export default async function authRoutes(fastify, options) {
                         id: true,
                         vk_id: true,
                         name: true,
-                        email: true,
                     },
                 });
                 if (!user) {
@@ -277,7 +328,6 @@ export default async function authRoutes(fastify, options) {
                         id: user.id,
                         vkId: user.vk_id.toString(),
                         name: user.name,
-                        email: user.email,
                     },
                 });
             }

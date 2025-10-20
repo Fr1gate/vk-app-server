@@ -6,9 +6,7 @@ const fastify: FastifyInstance = Fastify({
 });
 
 // Register routes
-fastify.log.info("Registering main routes handler...");
 fastify.register(routesHandler);
-fastify.log.info("Main routes handler registered");
 
 fastify.listen({ port: 3000 }, function (err: Error | null, address: string) {
   if (err) {

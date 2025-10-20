@@ -20,9 +20,14 @@ export declare function generateAccessToken(payload: Omit<JWTPayload, "type">): 
  */
 export declare function generateRefreshTokenJWT(payload: Omit<JWTPayload, "type">): string;
 /**
- * Generate both access and refresh tokens
+ * Generate both access and refresh tokens for VK authentication
  */
 export declare function generateTokenPair(userId: number, vkId: bigint): TokenPair;
+/**
+ * Generate tokens specifically for VK user authentication
+ * This is the main function used by VK auth endpoints
+ */
+export declare function generateVKTokenPair(userId: number, vkId: bigint): TokenPair;
 /**
  * Verify access token
  */

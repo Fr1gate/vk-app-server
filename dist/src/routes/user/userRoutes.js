@@ -75,7 +75,6 @@ export default async function userRoutes(fastify, options) {
                         id: true,
                         vk_id: true,
                         name: true,
-                        email: true,
                         home_base: {
                             select: {
                                 id: true,
@@ -104,7 +103,6 @@ export default async function userRoutes(fastify, options) {
                         id: user.id,
                         vkId: user.vk_id.toString(),
                         name: user.name,
-                        email: user.email,
                         homeBases: user.home_base.map((base) => ({
                             id: base.id,
                             buildings: base.building,
