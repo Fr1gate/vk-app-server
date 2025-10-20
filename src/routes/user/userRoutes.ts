@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions, FastifyReply } from "fastify";
 import { prisma } from "../../services/prisma.js";
 import {
   VKAuthenticatedRequest,
-  authenticateVK,
+  verifyVKParams,
 } from "../../middleware/vkAuth.js";
 
 export default async function userRoutes(
@@ -11,7 +11,7 @@ export default async function userRoutes(
 ) {
   // Get user's home bases (protected route)
   fastify.get("/user/home-base", {
-    preHandler: [authenticateVK],
+    preHandler: [verifyVKParams],
     handler: async (request: VKAuthenticatedRequest, reply: FastifyReply) => {
       try {
         const homeBases = await prisma.homeBase.findMany({
